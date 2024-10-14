@@ -1,0 +1,28 @@
+services:
+  pg_admin:
+    image: dpage/pgadmin4
+    ports:
+      - 5050:5050
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=mr.skreman@gmail.com
+      - PGADMIN_DEFAULT_PASSWORD=zPN\#JEg%P/Kef5
+    networks:
+      pgnet:
+        ipv4_address: 192.168.99.55
+  
+  pg:
+    image: postgres
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=value
+    networks:
+      pgnet:
+        ipv4_address: 192.168.99.56
+
+networks:
+  pgnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.99.0/24
