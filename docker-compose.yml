@@ -19,6 +19,14 @@ services:
     networks:
       pgnet:
         ipv4_address: 192.168.99.56
+  
+  redi:
+    image: redis
+    ports:
+      - 6379:6379
+    networks:
+      pgnet:
+        ipv4_address: 192.168.99.57
 
 networks:
   pgnet:
