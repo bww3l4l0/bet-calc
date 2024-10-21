@@ -35,7 +35,8 @@ async def menu(message: Message) -> None:
     # добавить и убрать деньги
 
     await message.answer(text='menu',
-                         reply_markup=kb)
+                         reply_markup=kb,
+                         protect_content=True)
 
 
 @menu_router.callback_query(F.data == 'info')
@@ -44,13 +45,27 @@ async def info(cb: CallbackQuery, db: Pool):
     передает информацию о статегиях пользователю
     '''
     await cb.answer()
-    data = await db.fetch('''
-                          SELECT *
-                          FROM "Strats"
-                          WHERE user_tg_id=$1
-                          ''', cb.from_user.id)
 
-    await cb.message.answer(str(data))
+    data = await db.fetch('''
+                            WITH tab AS(
+                            SELECT 	strat_id,
+                                    id,
+                                    (case when outcome then coef * cash_amount
+                                    when not outcome then -cash_amount
+                                    end) AS result
+                            FROM "Bets")
+                            SELECT  title,
+                                    result
+                            FROM(SELECT strat_id, sum(result) AS result
+                                FROM tab
+                                GROUP BY strat_id)
+                            JOIN "Strats" s on s.id=strat_id
+                            WHERE user_tg_id=$1
+                          ''',
+                          cb.from_user.id)
+
+    await cb.message.answer(str(data),
+                            protect_content=True)
 
 
 @menu_router.message(Command('cancel'))
@@ -59,4 +74,5 @@ async def reset(message: Message, state: FSMContext) -> None:
     сбрасывает состояние fsm
     '''
     await state.clear()
-    await message.answer('отменено')
+    await message.answer('отменено',
+                         protect_content=True)

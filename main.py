@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
@@ -16,8 +17,8 @@ redis = Redis(host=settings.REDIS_DSN.host,
               port=settings.REDIS_DSN.port
               )
 
-storage = RedisStorage(redis,)
-                    #    state_ttl=settings.REDIS_TTL)
+storage = RedisStorage(redis,
+                       state_ttl=settings.REDIS_TTL)
 
 dp = Dispatcher(storage=storage)
 
@@ -25,6 +26,11 @@ dp.include_router(menu_router)
 dp.include_router(strats_router)
 dp.include_router(new_bet_router)
 dp.include_router(opened_bets_router)
+
+logging.basicConfig(level=settings.LOGGING_LEVEL,
+                    handlers=[logging.StreamHandler(),
+                              logging.FileHandler(filename='./logs/log.log',
+                                                  mode=settings.LOGGING_MODE)])
 
 
 async def main():
@@ -43,8 +49,7 @@ if __name__ == '__main__':
 
 
 '''todo
-закрыть потенциальные ошибки: когда данных нет(старые клавиатуры)
 try except для sql
-реализовать накопительный алгоритм
-исправить ttl
+логирование
+переделать на spa like
 '''

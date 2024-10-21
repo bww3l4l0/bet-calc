@@ -7,6 +7,7 @@ from aiogram.types.inline_keyboard_markup import InlineKeyboardMarkup
 
 from aiogram.fsm.context import FSMContext
 
+
 from asyncpg.pool import Pool
 
 from core.state_machines import NewBetFSM
@@ -21,7 +22,8 @@ async def reset(message: Message,
                 ) -> None:
     '''reset fsm state and send error message
     '''
-    await message.answer(error_text)
+    await message.answer(error_text,
+                         protect_content=True)
     await state.clear()
 
 
@@ -31,7 +33,8 @@ async def bet(cb: CallbackQuery, state: FSMContext):
     '''
     await cb.answer()
     await state.set_state(NewBetFSM.description)
-    await cb.message.answer('введите описание ставки')
+    await cb.message.answer('введите описание ставки',
+                            protect_content=True)
 
 @new_bet_router.message(NewBetFSM.description)
 async def description(message: Message,
@@ -45,7 +48,8 @@ async def description(message: Message,
 
     await state.set_state(NewBetFSM.coef)
 
-    await message.answer('введите коэфициент события')
+    await message.answer('введите коэфициент события',
+                         protect_content=True)
 
 
 @new_bet_router.message(NewBetFSM.coef)
@@ -73,7 +77,8 @@ async def coef(message: Message,
 
     await state.set_state(NewBetFSM.cash)
 
-    await message.answer('введите размер ставки')
+    await message.answer('введите размер ставки',
+                         protect_content=True)
 
 
 @new_bet_router.message(NewBetFSM.cash)
@@ -114,7 +119,8 @@ async def cash(message: Message,
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    await message.answer('выберете стратегию', reply_markup=kb)
+    await message.answer('выберете стратегию', reply_markup=kb,
+                         protect_content=True)
 
     await state.set_state(NewBetFSM.strategy_id_p1)
 
@@ -129,6 +135,11 @@ async def kb_handler(cb: CallbackQuery,
     await cb.answer()
     fsm_data = await state.get_data()
 
+    # если fsm пустой то значит что это старая уже использованая клавиатура и нужно пройти все этапы заново
+    if not bool(fsm_data):
+        await cb.message.answer('ставка уже была добавленая ранее')
+        return
+
     # try except
     await db.execute('''
                      INSERT INTO "Bets" (bet, coef, cash_amount, strat_id)
@@ -136,4 +147,7 @@ async def kb_handler(cb: CallbackQuery,
                      ''',
                      fsm_data['description'], fsm_data['coef'], fsm_data['cash'], callback_data.id)
 
-    await cb.message.answer('успешно')
+    await state.clear()
+
+    await cb.message.answer('успешно',
+                            protect_content=True)

@@ -21,7 +21,8 @@ async def description(message: Message, state: FSMContext) -> None:
 
     await state.set_data({'description': message.text})
     await state.set_state(StrategyInsertionFSM.balance)
-    await message.answer('введите баланс')
+    await message.answer('введите баланс',
+                         protect_content=True)
 
 
 @strats_router.message(StrategyInsertionFSM.balance)
@@ -42,7 +43,8 @@ async def balance(message: Message, state: FSMContext) -> None:
 
     await state.update_data(balance=data)
 
-    await message.answer('введите название стратегии')
+    await message.answer('введите название стратегии',
+                         protect_content=True)
     await state.set_state(StrategyInsertionFSM.title)
 
 
@@ -59,7 +61,8 @@ async def title(message: Message, state: FSMContext, db: Pool) -> None:
                      (user_tg_id, description, balance, title)
                      VALUES ($1, $2, $3, $4)
                      ''', message.from_user.id, data['description'], data['balance'], message.text)
-    await message.answer('успешно')
+    await message.answer('успешно',
+                         protect_content=True)
     await state.set_state()
 
 
@@ -75,7 +78,8 @@ async def delete_strategy(cb: CallbackQuery, db: Pool):
                             WHERE id=$1
                             ''', cb.from_user.id)
     if not strats:
-        await cb.message.answer('у вас нет стратегий')
+        await cb.message.answer('у вас нет стратегий',
+                                protect_content=True)
         return
 
     buttons = []
@@ -86,7 +90,8 @@ async def delete_strategy(cb: CallbackQuery, db: Pool):
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    await cb.message.answer(text='выберите стратегию', reply_markup=kb)
+    await cb.message.answer(text='выберите стратегию', reply_markup=kb,
+                            protect_content=True)
 
 
 @strats_router.callback_query(StrategyDeletionData.filter())
@@ -102,7 +107,8 @@ async def delete_strategy_(cb: CallbackQuery,
                      FROM "Strats"
                      WHERE id=$1
                      ''', callback_data.id)
-    await cb.message.answer('удалено')
+    await cb.message.answer('удалено',
+                            protect_content=True)
 
 @strats_router.callback_query(F.data == 'new')
 async def new(cb: CallbackQuery, state: FSMContext):
@@ -111,4 +117,5 @@ async def new(cb: CallbackQuery, state: FSMContext):
     '''
     await cb.answer()
     await state.set_state(StrategyInsertionFSM.description)
-    await cb.message.answer('введите описание стратегии')
+    await cb.message.answer('введите описание стратегии',
+                            protect_content=True)

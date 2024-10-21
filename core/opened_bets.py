@@ -8,8 +8,21 @@ from aiogram.types.inline_keyboard_button import InlineKeyboardButton
 from aiogram.types.inline_keyboard_markup import InlineKeyboardMarkup
 
 from core.models import BetClosingData, BetResultData
+from aiogram.filters.callback_data import CallbackData
 
 opened_bets_router = Router()
+
+
+async def is_already_closed(db: Pool, callback_data: CallbackData) -> bool:
+    '''
+    проверяет статус ставки(открытие закрытие)
+    '''
+    outcome = await db.fetchval('''
+                                select outcome
+                                from "Bets"
+                                where id=$1
+                                ''', callback_data.id)
+    return outcome is not None
 
 
 @opened_bets_router.callback_query(F.data == 'close')
@@ -24,6 +37,11 @@ async def close(cb: CallbackQuery, db: Pool):
                           FROM "Bets"
                           WHERE outcome is null
                           ''')
+
+    if not bets:
+        await cb.message.answer('открытых ставок нет',
+                                protect_content=True)
+        return
 
     buttons = []
 
@@ -44,11 +62,8 @@ async def close(cb: CallbackQuery, db: Pool):
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    if not buttons:
-        await cb.message.answer('открытых ставок нет')
-        return
-
-    await cb.message.answer(text='выберите ставку', reply_markup=kb)
+    await cb.message.answer(text='выберите ставку', reply_markup=kb,
+                            protect_content=True)
 
 
 @opened_bets_router.callback_query(BetClosingData.filter(F.action == 'delete'))
@@ -66,17 +81,25 @@ async def delete_bet(cb: CallbackQuery,
                      ''',
                      callback_data.id)
 
-    await cb.message.answer('удалено')
+    await cb.message.answer('удалено',
+                            protect_content=True)
 
 
 @opened_bets_router.callback_query(BetClosingData.filter(F.action == 'close'))
 async def close_bet(cb: CallbackQuery,
-                    callback_data: BetClosingData) -> None:
+                    callback_data: BetClosingData,
+                    db: Pool) -> None:
     '''
     обработчик закрытия ставки
     '''
 
     await cb.answer()
+    is_closed = await is_already_closed(db, callback_data)
+
+    if is_closed:
+        await cb.message.answer('данная ставка уже закрыта')
+        return
+
     buttons = [[InlineKeyboardButton(text='исход положительный',
                                      callback_data=BetResultData(id=callback_data.id, result=True).pack())],
                [InlineKeyboardButton(text='исход отрицательный',
@@ -84,7 +107,8 @@ async def close_bet(cb: CallbackQuery,
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    await cb.message.answer('исход ставки', reply_markup=kb)
+    await cb.message.answer('исход ставки', reply_markup=kb,
+                            protect_content=True)
 
 
 @opened_bets_router.callback_query(BetResultData.filter())
@@ -97,10 +121,17 @@ async def close_bet_(cb: CallbackQuery,
 
     await cb.answer()
 
+    is_closed = await is_already_closed(db, callback_data)
+
+    if is_closed:
+        await cb.message.answer('данная ставка уже закрыта')
+        return
+
     await db.execute('''
                      UPDATE "Bets"
                      SET outcome=$1
                      WHERE id=$2
                      ''', callback_data.result, callback_data.id)
 
-    await cb.message.answer('ставка закрыта')
+    await cb.message.answer('ставка закрыта',
+                            protect_content=True)
